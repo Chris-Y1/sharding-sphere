@@ -70,6 +70,7 @@ public final class BackendConnection implements AutoCloseable {
     
     public BackendConnection(final TransactionType transactionType) {
         this.transactionType = transactionType;
+        System.out.println("rebase test");
     }
     
     /**
