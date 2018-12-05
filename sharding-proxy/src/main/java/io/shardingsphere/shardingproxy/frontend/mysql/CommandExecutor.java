@@ -35,6 +35,7 @@ import io.shardingsphere.shardingproxy.transport.mysql.packet.generic.OKPacket;
 import io.shardingsphere.spi.root.RootInvokeHook;
 import io.shardingsphere.spi.root.SPIRootInvokeHook;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.sql.SQLException;
 
@@ -45,6 +46,7 @@ import java.sql.SQLException;
  * @author zhaojun
  */
 @RequiredArgsConstructor
+@Slf4j
 public final class CommandExecutor implements Runnable {
     
     private final ChannelHandlerContext context;
@@ -63,13 +65,19 @@ public final class CommandExecutor implements Runnable {
         int connectionSize = 0;
         try (MySQLPacketPayload payload = new MySQLPacketPayload(message);
              BackendConnection backendConnection = frontendHandler.getBackendConnection()) {
-            backendConnection.getStateHandler().waitUntilConnectionReleasedIfNecessary();
+            backendConnection.getStateHandler().waitUntilConnectionReleasedIfNecessary(backendConnection);
+            log.info("#### getCommandPacket, connectionId:{}, status:{}, cachedSize:{}", backendConnection.getConnectionId(), backendConnection
+                .getStateHandler().getStatus(), backendConnection.getConnectionSize());
             CommandPacket commandPacket = getCommandPacket(payload, backendConnection, frontendHandler);
+            
             Optional<CommandResponsePackets> responsePackets = commandPacket.execute();
+            log.info("#### executed CommandPacket: {}, connectionId:{}, status:{}, cachedSize:{}", commandPacket.getClass().getSimpleName(), backendConnection.getConnectionId(), backendConnection
+                .getStateHandler().getStatus(), backendConnection.getConnectionSize());
             if (!responsePackets.isPresent()) {
                 return;
             }
             for (DatabasePacket each : responsePackets.get().getPackets()) {
+                log.info("#### write result packet: {}, connectionId:{}", each, backendConnection.getConnectionId());
                 context.writeAndFlush(each);
             }
             if (commandPacket instanceof QueryCommandPacket && !(responsePackets.get().getHeadPacket() instanceof OKPacket) && !(responsePackets.get().getHeadPacket() instanceof ErrPacket)) {

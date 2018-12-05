@@ -61,7 +61,8 @@ public final class SQLExecutePrepareTemplate {
      * @throws SQLException SQL exception
      */
     public Collection<ShardingExecuteGroup<StatementExecuteUnit>> getExecuteUnitGroups(final Collection<RouteUnit> routeUnits, final SQLExecutePrepareCallback callback) throws SQLException {
-        return null == shardingExecuteEngine ? getSynchronizedExecuteUnitGroups(routeUnits, callback) : getAsynchronizedExecuteUnitGroups(routeUnits, callback);
+        return getSynchronizedExecuteUnitGroups(routeUnits, callback);
+//        return null == shardingExecuteEngine ? getSynchronizedExecuteUnitGroups(routeUnits, callback) : getAsynchronizedExecuteUnitGroups(routeUnits, callback);
     }
     
     private Collection<ShardingExecuteGroup<StatementExecuteUnit>> getSynchronizedExecuteUnitGroups(

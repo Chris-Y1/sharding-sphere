@@ -62,6 +62,7 @@ public final class ComInitDbPacket implements CommandPacket {
     public Optional<CommandResponsePackets> execute() {
         log.debug("Schema name received for Sharding-Proxy: {}", schema);
         if (GlobalRegistry.getInstance().schemaExists(schema)) {
+            log.info("### init schema, connectionId:{}", backendConnection.getConnectionId());
             backendConnection.setCurrentSchema(schema);
             return Optional.of(new CommandResponsePackets(new OKPacket(getSequenceId() + 1)));
         }

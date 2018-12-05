@@ -34,6 +34,7 @@ import io.shardingsphere.shardingproxy.transport.mysql.packet.handshake.Connecti
 import io.shardingsphere.shardingproxy.transport.mysql.packet.handshake.HandshakePacket;
 import io.shardingsphere.shardingproxy.transport.mysql.packet.handshake.HandshakeResponse41Packet;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * MySQL frontend handler.
@@ -44,6 +45,7 @@ import lombok.RequiredArgsConstructor;
  * @author zhangyonglun
  */
 @RequiredArgsConstructor
+@Slf4j
 public final class MySQLFrontendHandler extends FrontendHandler {
     
     private final EventLoopGroup eventLoopGroup;
@@ -67,6 +69,7 @@ public final class MySQLFrontendHandler extends FrontendHandler {
                     context.writeAndFlush(new ErrPacket(response41.getSequenceId() + 1, ServerErrorCode.ER_BAD_DB_ERROR, response41.getDatabase()));
                     return;
                 }
+                log.info("#### after auth, set schema, connectionId:{}", getBackendConnection().getConnectionId());
                 getBackendConnection().setCurrentSchema(response41.getDatabase());
                 context.writeAndFlush(new OKPacket(response41.getSequenceId() + 1));
             } else {

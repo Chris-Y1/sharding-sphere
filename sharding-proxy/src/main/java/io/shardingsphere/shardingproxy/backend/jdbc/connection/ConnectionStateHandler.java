@@ -18,6 +18,7 @@
 package io.shardingsphere.shardingproxy.backend.jdbc.connection;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -27,6 +28,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * @author zhaojun
  */
 @RequiredArgsConstructor
+@Slf4j
 public class ConnectionStateHandler {
     
     private volatile AtomicReference<ConnectionStatus> status = new AtomicReference<>(ConnectionStatus.INIT);
@@ -58,7 +60,7 @@ public class ConnectionStateHandler {
      * Change connection status to running if necessary.
      */
     void setRunningStatusIfNecessary() {
-        if (ConnectionStatus.INIT == status.get() || ConnectionStatus.TERMINATED == status.get()) {
+        if (ConnectionStatus.TRANSACTION != status.get()) {
             status.getAndSet(ConnectionStatus.RUNNING);
         }
     }
@@ -75,9 +77,11 @@ public class ConnectionStateHandler {
     /**
      * Notify connection to finish wait if necessary.
      */
-    void doNotifyIfNecessary() {
+    void doNotifyIfNecessary(final BackendConnection connection) {
         if (status.compareAndSet(ConnectionStatus.RUNNING, ConnectionStatus.RELEASE)) {
+            log.info("###### finish release connection, connectionId:{}, status:{}", connection.getConnectionId(), connection.getStateHandler().getStatus());
             resourceSynchronizer.doNotify();
+            
         }
     }
     
@@ -86,11 +90,13 @@ public class ConnectionStateHandler {
      *
      * @throws InterruptedException interrupted exception
      */
-    public void waitUntilConnectionReleasedIfNecessary() throws InterruptedException {
+    public void waitUntilConnectionReleasedIfNecessary(final BackendConnection connection) throws InterruptedException {
         if (ConnectionStatus.RUNNING == status.get()) {
             while (!status.compareAndSet(ConnectionStatus.RELEASE, ConnectionStatus.RUNNING)) {
+                log.warn("###### start await, connectionId:{}", connection.getConnectionId());
                 resourceSynchronizer.doAwait();
             }
+            log.warn("###### end await, connectionId:{}", connection.getConnectionId());
         }
     }
 }

@@ -36,6 +36,7 @@ import io.shardingsphere.shardingproxy.runtime.GlobalRegistry;
 import io.shardingsphere.shardingproxy.runtime.schema.LogicSchema;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 
@@ -47,6 +48,7 @@ import java.util.List;
  * @author zhaojun
  */
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
+@Slf4j
 public final class BackendHandlerFactory {
     
     private static final GlobalRegistry GLOBAL_REGISTRY = GlobalRegistry.getInstance();
@@ -63,12 +65,15 @@ public final class BackendHandlerFactory {
     public static BackendHandler createBackendHandler(final int sequenceId, final String sql, final BackendConnection backendConnection, final DatabaseType databaseType) {
         SQLStatement sqlStatement = new SQLJudgeEngine(sql).judge();
         if (SQLType.DCL == sqlStatement.getType() || sqlStatement instanceof SetStatement) {
+            log.info("#### use SchemaBroadcastBackendHandler, connectionId:{}, sql:{}", backendConnection.getConnectionId(), sql);
             return new SchemaBroadcastBackendHandler(sequenceId, sql, backendConnection, databaseType);
         }
         if (sqlStatement instanceof UseStatement || sqlStatement instanceof ShowDatabasesStatement) {
+            log.info("#### use SchemaIgnoreBackendHandler, connectionId:{}, sql:{}", backendConnection.getConnectionId(), sql);
             return new SchemaIgnoreBackendHandler(sqlStatement, backendConnection);
         }
         if (sqlStatement instanceof ShowOtherStatement) {
+            log.info("#### use SchemaUnicastBackendHandler, connectionId:{}, sql:{}", backendConnection.getConnectionId(), sql);
             return new SchemaUnicastBackendHandler(sequenceId, sql, backendConnection, DatabaseType.MySQL);
         }
         return newTextProtocolInstance(sequenceId, sql, backendConnection, DatabaseType.MySQL);

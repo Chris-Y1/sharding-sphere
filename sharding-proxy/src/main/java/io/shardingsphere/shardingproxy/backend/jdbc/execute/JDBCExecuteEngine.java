@@ -55,6 +55,7 @@ import io.shardingsphere.shardingproxy.transport.mysql.packet.generic.OKPacket;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -75,6 +76,7 @@ import java.util.List;
 @RequiredArgsConstructor
 @Getter
 @Setter
+@Slf4j
 public final class JDBCExecuteEngine implements SQLExecuteEngine {
     
     private static final Integer MEMORY_FETCH_ONE_ROW_A_TIME = Integer.MIN_VALUE;
@@ -112,8 +114,10 @@ public final class JDBCExecuteEngine implements SQLExecuteEngine {
                 sqlExecutePrepareTemplate.getExecuteUnitGroups(routeResult.getRouteUnits(), new ProxyJDBCExecutePrepareCallback(isReturnGeneratedKeys));
         SQLExecuteCallback<ExecuteResponseUnit> firstProxySQLExecuteCallback = new FirstProxyJDBCExecuteCallback(isExceptionThrown, isReturnGeneratedKeys);
         SQLExecuteCallback<ExecuteResponseUnit> proxySQLExecuteCallback = new ProxyJDBCExecuteCallback(isExceptionThrown, isReturnGeneratedKeys);
+        long start = System.nanoTime();
         Collection<ExecuteResponseUnit> executeResponseUnits = sqlExecuteTemplate.executeGroup((Collection) sqlExecuteGroups,
                 firstProxySQLExecuteCallback, proxySQLExecuteCallback);
+        log.info("sql execute time:{}", System.nanoTime() - start);
         ExecuteResponseUnit firstExecuteResponseUnit = executeResponseUnits.iterator().next();
         return firstExecuteResponseUnit instanceof ExecuteQueryResponseUnit
                 ? getExecuteQueryResponse(((ExecuteQueryResponseUnit) firstExecuteResponseUnit).getQueryResponsePackets(), executeResponseUnits) : new ExecuteUpdateResponse(executeResponseUnits);
@@ -183,7 +187,9 @@ public final class JDBCExecuteEngine implements SQLExecuteEngine {
         
         @Override
         public StatementExecuteUnit createStatementExecuteUnit(final Connection connection, final RouteUnit routeUnit, final ConnectionMode connectionMode) throws SQLException {
+            long start = System.nanoTime();
             Statement statement = getJdbcExecutorWrapper().createStatement(connection, routeUnit.getSqlUnit(), isReturnGeneratedKeys);
+            log.info("### createStatement time:{}", System.nanoTime() - start);
             if (connectionMode.equals(ConnectionMode.MEMORY_STRICTLY)) {
                 statement.setFetchSize(MEMORY_FETCH_ONE_ROW_A_TIME);
             }

@@ -17,6 +17,7 @@
 
 package io.shardingsphere.shardingproxy.backend.jdbc.connection;
 
+import io.shardingsphere.core.constant.transaction.TransactionType;
 import lombok.SneakyThrows;
 import org.junit.Test;
 
@@ -38,7 +39,7 @@ public class ConnectionStateHandlerTest {
             @SneakyThrows
             public void run() {
                 connectionStateHandler.getAndSetStatus(ConnectionStatus.RUNNING);
-                connectionStateHandler.waitUntilConnectionReleasedIfNecessary();
+                connectionStateHandler.waitUntilConnectionReleasedIfNecessary(new BackendConnection(TransactionType.LOCAL));
                 if (ConnectionStatus.RUNNING != connectionStateHandler.getStatus()) {
                     flag.getAndSet(false);
                 }
@@ -49,7 +50,7 @@ public class ConnectionStateHandlerTest {
             @SneakyThrows
             public void run() {
                 Thread.sleep(2000);
-                connectionStateHandler.doNotifyIfNecessary();
+                connectionStateHandler.doNotifyIfNecessary(new BackendConnection(TransactionType.LOCAL));
             }
         });
         waitThread.start();

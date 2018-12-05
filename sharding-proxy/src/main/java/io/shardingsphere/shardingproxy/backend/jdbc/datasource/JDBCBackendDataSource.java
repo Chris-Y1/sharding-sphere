@@ -23,6 +23,8 @@ import io.shardingsphere.core.rule.DataSourceParameter;
 import io.shardingsphere.shardingproxy.backend.BackendDataSource;
 import io.shardingsphere.shardingproxy.runtime.GlobalRegistry;
 import lombok.Getter;
+import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 
 import javax.sql.DataSource;
 import java.lang.reflect.Method;
@@ -34,6 +36,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Backend data source for JDBC.
@@ -43,10 +49,13 @@ import java.util.Map.Entry;
  * @author panjuan
  */
 @Getter
+@Slf4j
 public final class JDBCBackendDataSource implements BackendDataSource, AutoCloseable {
     
     @Getter
     private final Map<String, DataSource> dataSources;
+    
+    private Lock lock = new ReentrantLock();
     
     public JDBCBackendDataSource(final Map<String, DataSourceParameter> dataSourceParameters) {
         dataSources = createDataSourceMap(dataSourceParameters);
@@ -112,14 +121,62 @@ public final class JDBCBackendDataSource implements BackendDataSource, AutoClose
         synchronized (dataSource) {
             return createConnections(dataSource, connectionSize);
         }
+//        return createConnections(dataSource, connectionSize);
     }
     
+//    private List<Connection> createConnections(final DataSource dataSource, final int connectionSize) throws SQLException {
+//        boolean hasException = false;
+//        List<Connection> result = new ArrayList<>(connectionSize);
+//        try {
+//            if (!lock.tryLock(3, TimeUnit.SECONDS)) {
+//                throw new ShardingException("there are too many concurrent request");
+//            }
+//        } catch (InterruptedException e) {
+//            e.printStackTrace();
+//        }
+//        try {
+//            for (int i = 0; i < connectionSize; i++) {
+//                try {
+//                    long start = System.nanoTime();
+//                    result.add(dataSource.getConnection());
+//                    log.info("getConnection time is {}", System.nanoTime() - start);
+//                } catch (Exception ex) {
+//                    hasException = true;
+//                }
+//            }
+//            if (hasException) {
+//                for (Connection each : result) {
+//                    each.close();
+//                    log.info("#### close connection for part-error, connection:{}", each);
+//                }
+//                throw new SQLException("pool is not enough");
+//            } else {
+//                return result;
+//            }
+//        } finally {
+//            lock.unlock();
+//        }
+//    }
+    
     private List<Connection> createConnections(final DataSource dataSource, final int connectionSize) throws SQLException {
+        boolean hasException = false;
         List<Connection> result = new ArrayList<>(connectionSize);
         for (int i = 0; i < connectionSize; i++) {
-            result.add(dataSource.getConnection());
+            try {
+                result.add(dataSource.getConnection());
+            } catch (Exception ex) {
+                hasException = true;
+            }
         }
-        return result;
+        if (hasException) {
+            for (Connection each : result) {
+                each.close();
+                log.info("#### close connection for part-error, connection:{}", each);
+            }
+            throw new SQLException("pool is not enough");
+        } else {
+            return result;
+        }
     }
     
     @Override

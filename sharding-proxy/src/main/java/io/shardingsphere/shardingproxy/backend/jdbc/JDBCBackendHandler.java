@@ -52,6 +52,7 @@ import io.shardingsphere.shardingproxy.transport.mysql.packet.generic.EofPacket;
 import io.shardingsphere.shardingproxy.transport.mysql.packet.generic.ErrPacket;
 import io.shardingsphere.shardingproxy.transport.mysql.packet.generic.OKPacket;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -66,6 +67,7 @@ import java.util.List;
  * @author panjuan
  */
 @RequiredArgsConstructor
+@Slf4j
 public final class JDBCBackendHandler extends AbstractBackendHandler {
     
     private static final GlobalRegistry GLOBAL_REGISTRY = GlobalRegistry.getInstance();
@@ -84,9 +86,13 @@ public final class JDBCBackendHandler extends AbstractBackendHandler {
     
     @Override
     protected CommandResponsePackets execute0() throws SQLException {
-        return logicSchema == null
-                ? new CommandResponsePackets(new ErrPacket(1, ServerErrorCode.ER_NO_DB_ERROR))
-                : execute(executeEngine.getJdbcExecutorWrapper().route(sql, DatabaseType.MySQL));
+        if (logicSchema == null) {
+            return new CommandResponsePackets(new ErrPacket(1, ServerErrorCode.ER_NO_DB_ERROR));
+        }
+        long start = System.nanoTime();
+        SQLRouteResult routeResult = executeEngine.getJdbcExecutorWrapper().route(sql, DatabaseType.MySQL);
+        log.info("### sql route time:{}", System.nanoTime() - start);
+        return execute(routeResult);
     }
     
     private CommandResponsePackets execute(final SQLRouteResult routeResult) throws SQLException {
@@ -116,6 +122,7 @@ public final class JDBCBackendHandler extends AbstractBackendHandler {
     }
     
     private CommandResponsePackets merge(final SQLStatement sqlStatement) throws SQLException {
+        long start = System.nanoTime();
         if (executeResponse instanceof ExecuteUpdateResponse) {
             return ((ExecuteUpdateResponse) executeResponse).merge();
         }
@@ -127,6 +134,7 @@ public final class JDBCBackendHandler extends AbstractBackendHandler {
         }
         QueryResponsePackets result = getQueryResponsePacketsWithoutDerivedColumns(((ExecuteQueryResponse) executeResponse).getQueryResponsePackets());
         currentSequenceId = result.getPackets().size();
+        log.info("### sql merge time:{}", System.nanoTime() - start);
         return result;
     }
     

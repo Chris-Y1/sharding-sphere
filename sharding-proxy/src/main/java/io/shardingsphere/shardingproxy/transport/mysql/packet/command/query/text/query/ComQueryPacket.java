@@ -88,6 +88,9 @@ public final class ComQueryPacket implements QueryCommandPacket {
         if (GlobalRegistry.getInstance().isCircuitBreak()) {
             return Optional.of(new CommandResponsePackets(new ErrPacket(1, ServerErrorCode.ER_CIRCUIT_BREAK_MODE)));
         }
+        if ("SET autocommit=1".equals(sql)) {
+            return Optional.of(new CommandResponsePackets(new OKPacket(1)));
+        }
         Optional<TransactionOperationType> operationType = TransactionOperationType.getOperationType(sql);
         if (!operationType.isPresent()) {
             return Optional.of(backendHandler.execute());

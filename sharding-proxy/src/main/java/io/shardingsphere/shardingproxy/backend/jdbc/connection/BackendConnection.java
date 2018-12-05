@@ -96,6 +96,7 @@ public final class BackendConnection implements AutoCloseable {
      * @param schemaName schema name
      */
     public void setCurrentSchema(final String schemaName) {
+        log.info("### set currentSchema, connectionId:{}", connectionId);
         if (isSwitchFailed()) {
             throw new ShardingException("Failed to switch schema, please terminate current transaction.");
         }
@@ -128,11 +129,16 @@ public final class BackendConnection implements AutoCloseable {
      * @throws SQLException SQL exception
      */
     public List<Connection> getConnections(final ConnectionMode connectionMode, final String dataSourceName, final int connectionSize) throws SQLException {
-        stateHandler.setRunningStatusIfNecessary();
-        if (stateHandler.isInTransaction()) {
-            return getConnectionsWithTransaction(connectionMode, dataSourceName, connectionSize);
-        } else {
-            return getConnectionsWithoutTransaction(connectionMode, dataSourceName, connectionSize);
+        try {
+            stateHandler.setRunningStatusIfNecessary();
+            if (stateHandler.isInTransaction()) {
+                return getConnectionsWithTransaction(connectionMode, dataSourceName, connectionSize);
+            } else {
+                return getConnectionsWithoutTransaction(connectionMode, dataSourceName, connectionSize);
+            }
+        } catch (Exception ex) {
+            log.info("getConnections error, dataSourceName:{}, message:{}, connectionId:{}", dataSourceName, ex.getMessage(), connectionId);
+            throw ex;
         }
     }
     
@@ -161,10 +167,16 @@ public final class BackendConnection implements AutoCloseable {
         return result;
     }
     
-    private synchronized List<Connection> getConnectionsWithoutTransaction(final ConnectionMode connectionMode, final String dataSourceName, final int connectionSize) throws SQLException {
+    private List<Connection> getConnectionsWithoutTransaction(final ConnectionMode connectionMode, final String dataSourceName, final int connectionSize) throws SQLException {
+        log.info("### start getConnection, dataSourceName:{}, connectionId:{}, status:{}, needs:{}, cached:{}", dataSourceName, connectionId, stateHandler.getStatus(), connectionSize,
+            getConnectionSize());
         Preconditions.checkNotNull(logicSchema, "current logic schema is null");
         List<Connection> result = logicSchema.getBackendDataSource().getConnections(connectionMode, dataSourceName, connectionSize);
-        cachedConnections.putAll(dataSourceName, result);
+        synchronized (cachedConnections) {
+            cachedConnections.putAll(dataSourceName, result);
+        }
+        log.info("### finish get connection, dataSourceName:{}, connectionId:{}, status:{}, needs:{}, cached:{}", dataSourceName, connectionId, stateHandler.getStatus(),
+            connectionSize, getConnectionSize());
         return result;
     }
     
@@ -220,10 +232,11 @@ public final class BackendConnection implements AutoCloseable {
         MasterVisitedManager.clear();
         exceptions.addAll(closeStatements());
         exceptions.addAll(closeResultSets());
+        log.info("###### start release connection, connectionId:{}, status:{}, cachedSize:{}", getConnectionId(), getStateHandler().getStatus(), getConnectionSize());
         if (!stateHandler.isInTransaction() || forceClose) {
             exceptions.addAll(releaseConnections(forceClose));
         }
-        stateHandler.doNotifyIfNecessary();
+        stateHandler.doNotifyIfNecessary(this);
         throwSQLExceptionIfNecessary(exceptions);
     }
     
