@@ -39,7 +39,7 @@ public final class ParsingResultCache {
      * @param sql SQL
      * @param sqlStatement SQL statement
      */
-    public void put(final String sql, final SQLStatement sqlStatement) {
+    public synchronized void put(final String sql, final SQLStatement sqlStatement) {
         cache.put(sql, sqlStatement);
     }
     

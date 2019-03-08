@@ -18,6 +18,7 @@
 package org.apache.shardingsphere.shardingproxy.backend.communication.jdbc;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.shardingsphere.core.constant.DatabaseType;
 import org.apache.shardingsphere.core.constant.SQLType;
 import org.apache.shardingsphere.core.merger.MergeEngineFactory;
@@ -58,6 +59,7 @@ import java.util.List;
  * @author maxiaoguang
  */
 @RequiredArgsConstructor
+@Slf4j
 public final class JDBCDatabaseCommunicationEngine implements DatabaseCommunicationEngine {
     
     private final LogicSchema logicSchema;
@@ -76,6 +78,9 @@ public final class JDBCDatabaseCommunicationEngine implements DatabaseCommunicat
     public BackendResponse execute() {
         try {
             SQLRouteResult routeResult = executeEngine.getJdbcExecutorWrapper().route(sql, databaseType);
+            if ("SELECT 1".equals(sql)) {
+                log.info("SQL rout result:{} {}", routeResult.getRouteUnits().toString(), routeResult.getSqlStatement().toString());
+            }
             return execute(routeResult);
         } catch (final SQLException ex) {
             return new ErrorResponse(ex);

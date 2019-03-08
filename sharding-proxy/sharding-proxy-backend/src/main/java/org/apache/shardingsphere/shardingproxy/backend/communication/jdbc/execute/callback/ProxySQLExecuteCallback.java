@@ -17,6 +17,7 @@
 
 package org.apache.shardingsphere.shardingproxy.backend.communication.jdbc.execute.callback;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.shardingsphere.core.constant.ConnectionMode;
 import org.apache.shardingsphere.core.executor.sql.execute.SQLExecuteCallback;
 import org.apache.shardingsphere.core.executor.sql.execute.result.MemoryQueryResult;
@@ -47,6 +48,7 @@ import java.util.List;
  *
  * @author zhangliang
  */
+@Slf4j
 public final class ProxySQLExecuteCallback extends SQLExecuteCallback<ExecuteResponse> {
     
     private final BackendConnection backendConnection;
@@ -82,6 +84,9 @@ public final class ProxySQLExecuteCallback extends SQLExecuteCallback<ExecuteRes
         backendConnection.add(statement);
         if (jdbcExecutorWrapper.executeSQL(statement, sql, isReturnGeneratedKeys)) {
             ResultSet resultSet = statement.getResultSet();
+            if (null == resultSet) {
+                log.info("executeSQL, resultSet:{}, connection mode:{}, statement:{}, sql:{}, withMetadata:{}", resultSet, connectionMode, statement, sql, withMetadata);
+            }
             backendConnection.add(resultSet);
             return new ExecuteQueryResponse(withMetadata ? getQueryHeaders(resultSet.getMetaData()) : null, createQueryResult(resultSet, connectionMode));
         }

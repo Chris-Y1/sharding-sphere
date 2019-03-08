@@ -19,6 +19,7 @@ package org.apache.shardingsphere.shardingproxy.transport.mysql.packet.command.q
 
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -32,6 +33,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * @author zhaojun
  */
 @NoArgsConstructor(access = AccessLevel.NONE)
+@Slf4j
 public final class MySQLBinaryStatementRegistry {
     
     private static final MySQLBinaryStatementRegistry INSTANCE = new MySQLBinaryStatementRegistry();
@@ -58,14 +60,14 @@ public final class MySQLBinaryStatementRegistry {
      * @param parametersCount parameters count
      * @return statement ID
      */
-    public int register(final String sql, final int parametersCount) {
+    public synchronized int register(final String sql, final int parametersCount) {
         Integer result = statementIdAssigner.get(sql);
         if (null != result) {
             return result;
         }
         result = sequence.incrementAndGet();
-        statementIdAssigner.putIfAbsent(sql, result);
         binaryStatements.putIfAbsent(result, new MySQLBinaryStatement(sql, parametersCount));
+        statementIdAssigner.putIfAbsent(sql, result);
         return result;
     }
     
@@ -85,10 +87,11 @@ public final class MySQLBinaryStatementRegistry {
      * @param statementId statement ID
      */
     public void remove(final int statementId) {
-        MySQLBinaryStatement binaryStatement = getBinaryStatement(statementId);
-        if (null != binaryStatement) {
-            statementIdAssigner.remove(binaryStatement.getSql());
-            binaryStatements.remove(statementId);
-        }
+        log.info("remove statementId:{}", statementId);
+//        MySQLBinaryStatement binaryStatement = getBinaryStatement(statementId);
+//        if (null != binaryStatement) {
+//            statementIdAssigner.remove(binaryStatement.getSql());
+//            binaryStatements.remove(statementId);
+//        }
     }
 }
